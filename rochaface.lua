@@ -1,8 +1,9 @@
--- HigorGUI v2.0 - GUI tipo Minecraft Client (módulos flutuantes)
+-- HigorGUI v3.0 - Janelas flutuantes com drag e persistência
 local HigorGUI = {}
 HigorGUI.__index = HigorGUI
 
 local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
 
 function HigorGUI.new(config)
     local self = setmetatable({}, HigorGUI)
@@ -12,7 +13,9 @@ function HigorGUI.new(config)
     self.Enabled = true
     
     self.Windows = {}
+    self.SavedPositions = {}
     self.DraggingWindow = nil
+    self.DragStart = nil
     self.DragOffset = nil
     
     self:CreateMainUI()
@@ -25,7 +28,6 @@ function HigorGUI:CreateMainUI()
     local player = game.Players.LocalPlayer
     local playerGui = player:WaitForChild("PlayerGui")
     
-    -- Main ScreenGui
     local screenGui = Instance.new("ScreenGui")
     screenGui.Name = "HigorGUI"
     screenGui.ResetOnSpawn = false
@@ -44,6 +46,9 @@ function HigorGUI:CreateWindow(title, x, y, width, height)
     windowFrame.BorderColor3 = Color3.fromRGB(157, 78, 221)
     windowFrame.BorderSizePixel = 2
     windowFrame.Parent = self.ScreenGui
+    
+    -- Salvar posição inicial
+    self.SavedPositions[title] = {x = x, y = y}
     
     -- Título (draggable)
     local titleBar = Instance.new("Frame")
@@ -88,14 +93,15 @@ function HigorGUI:CreateWindow(title, x, y, width, height)
     contentFrame.BorderSizePixel = 0
     contentFrame.Parent = windowFrame
     
-    -- Tornar draggable
+    -- Tornar draggable pelo título
     self:MakeDraggable(windowFrame, titleBar)
     
     local windowData = {
         Frame = windowFrame,
         TitleBar = titleBar,
         Content = contentFrame,
-        Modules = {}
+        Modules = {},
+        Title = title
     }
     
     table.insert(self.Windows, windowData)
@@ -112,7 +118,6 @@ function HigorGUI:AddToggle(window, name, default, callback)
     toggleFrame.BorderSizePixel = 1
     toggleFrame.Parent = window.Content
     
-    -- Label
     local label = Instance.new("TextLabel")
     label.Text = name
     label.Size = UDim2.new(0.55, 0, 1, 0)
@@ -123,7 +128,6 @@ function HigorGUI:AddToggle(window, name, default, callback)
     label.TextXAlignment = Enum.TextXAlignment.Left
     label.Parent = toggleFrame
     
-    -- Toggle Button
     local toggleBtn = Instance.new("TextButton")
     toggleBtn.Name = "Toggle"
     toggleBtn.Text = default and "ON" or "OFF"
@@ -155,7 +159,6 @@ function HigorGUI:AddToggle(window, name, default, callback)
     
     table.insert(window.Modules, toggleFrame)
     
-    -- Ajustar altura da janela
     local newHeight = 25 + (#window.Modules * 24)
     window.Frame.Size = UDim2.new(0, window.Frame.Size.X.Offset, 0, newHeight)
 end
@@ -203,23 +206,33 @@ function HigorGUI:AddButton(window, name, callback)
 end
 
 function HigorGUI:MakeDraggable(frame, titleBar)
+    local self = self
+    
     titleBar.InputBegan:Connect(function(input, gameProcessed)
         if gameProcessed then return end
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
             self.DraggingWindow = frame
+            self.DragStart = input.Position
             self.DragOffset = frame.Position - UDim2.new(0, input.Position.X, 0, input.Position.Y)
         end
     end)
     
     titleBar.InputEnded:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            if self.DraggingWindow == frame then
+                -- Salvar nova posição
+                self.SavedPositions[frame.Name] = {
+                    x = frame.Position.X.Offset,
+                    y = frame.Position.Y.Offset
+                }
+            end
             self.DraggingWindow = nil
         end
     end)
     
     UserInputService.InputChanged:Connect(function(input)
-        if self.DraggingWindow and input.UserInputType == Enum.UserInputType.Mouse then
-            self.DraggingWindow.Position = UDim2.new(0, input.Position.X, 0, input.Position.Y) + self.DragOffset
+        if self.DraggingWindow == frame and input.UserInputType == Enum.UserInputType.Mouse then
+            frame.Position = UDim2.new(0, input.Position.X, 0, input.Position.Y) + self.DragOffset
         end
     end)
 end
@@ -230,6 +243,12 @@ function HigorGUI:SetupInput()
         if input.KeyCode == self.ToggleKey then
             for _, window in ipairs(self.Windows) do
                 window.Frame.Visible = not window.Frame.Visible
+                
+                -- Restaurar posição salva ao reabrir
+                if window.Frame.Visible and self.SavedPositions[window.Title] then
+                    local pos = self.SavedPositions[window.Title]
+                    window.Frame.Position = UDim2.new(0, pos.x, 0, pos.y)
+                end
             end
             self.Enabled = self.Windows[1].Frame.Visible
         end
