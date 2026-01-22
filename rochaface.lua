@@ -184,17 +184,20 @@ end
 
 function HigorGUI:MakeDraggable(frame, titleBar)
     local dragging = false
-    local dragStart = nil
     local dragOffset = nil
     local self = self
+    local UIS = game:GetService("UserInputService")
+    local mouse = game.Players.LocalPlayer:GetMouse()
     
-    titleBar.MouseButton1Down:Connect(function()
-        dragging = true
-        dragStart = game:GetService("UserInputService"):GetMouseLocation()
-        dragOffset = frame.Position - UDim2.new(0, dragStart.X, 0, dragStart.Y)
+    titleBar.InputBegan:Connect(function(input, gameProcessed)
+        if gameProcessed then return end
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            dragOffset = frame.Position - UDim2.new(0, mouse.X, 0, mouse.Y)
+        end
     end)
     
-    game:GetService("UserInputService").InputEnded:Connect(function(input)
+    titleBar.InputEnded:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
             if dragging then
                 self.SavedPositions[frame.Name] = {
@@ -206,9 +209,8 @@ function HigorGUI:MakeDraggable(frame, titleBar)
         end
     end)
     
-    game:GetService("UserInputService").InputChanged:Connect(function(input)
+    UIS.InputChanged:Connect(function(input)
         if dragging and input.UserInputType == Enum.UserInputType.Mouse then
-            local mouse = game.Players.LocalPlayer:GetMouse()
             frame.Position = UDim2.new(0, mouse.X, 0, mouse.Y) + dragOffset
         end
     end)
