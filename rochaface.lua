@@ -1,158 +1,235 @@
--- Script Higor Rocha [Utilitario V2] com HigorGUI v3
-local HigorGUI = loadstring(game:HttpGet("SEU_LINK_AQUI/HigorGUIv4.lua"))()
+-- HigorGUI Simple - GUI funcional para Roblox
+local HigorGUI = {}
+HigorGUI.__index = HigorGUI
 
-local GUI = HigorGUI.new({
-    Title = "Higor Rocha [Utilitario V2]",
-    ToggleKey = Enum.KeyCode.G
-})
-
--- Configurações
-local scriptAtivo = true
-local autoFarmAtivo = false
-local autoAttackAtivo = false
-local aerialAttackAtivo = false
-local showNamesAtivo = false
-
--- Services
-local players = game:GetService("Players")
-local workspace = game:GetService("Workspace")
-local player = players.LocalPlayer
-
--- Sistema de Nomes
-local nameTags = {}
-
-local function createNameTag(enemy)
-    if not enemy or not enemy:FindFirstChild("HumanoidRootPart") or nameTags[enemy] then return end
+function HigorGUI.new(config)
+    local self = setmetatable({}, HigorGUI)
     
-    local hrp = enemy.HumanoidRootPart
-    local billboard = Instance.new("BillboardGui")
-    billboard.Name = "EnemyNameTag"
-    billboard.Size = UDim2.new(0, 200, 0, 60)
-    billboard.AlwaysOnTop = true
-    billboard.StudsOffset = Vector3.new(0, 4, 0)
-    billboard.MaxDistance = 150
-    billboard.Parent = hrp
+    self.Title = config.Title or "HigorGUI"
+    self.ToggleKey = config.ToggleKey or Enum.KeyCode.G
     
-    local hpLabel = Instance.new("TextLabel")
-    hpLabel.Text = "100%"
-    hpLabel.Size = UDim2.new(1, 0, 0.5, 0)
-    hpLabel.BackgroundTransparency = 0.8
-    hpLabel.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    hpLabel.BorderSizePixel = 0
-    hpLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
-    hpLabel.Font = Enum.Font.GothamBold
-    hpLabel.TextSize = 18
-    hpLabel.Parent = billboard
+    self.Windows = {}
+    self.SavedPositions = {}
+    self.DraggingWindow = nil
+    self.GUIActive = false
     
-    local nameLabel = Instance.new("TextLabel")
-    nameLabel.Text = enemy.Name
-    nameLabel.Size = UDim2.new(1, 0, 0.5, 0)
-    nameLabel.Position = UDim2.new(0, 0, 0.5, 0)
-    nameLabel.BackgroundTransparency = 0.8
-    nameLabel.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    nameLabel.BorderSizePixel = 0
-    nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    nameLabel.Font = Enum.Font.GothamBold
-    nameLabel.TextSize = 16
-    nameLabel.Parent = billboard
+    self:Init()
     
-    nameTags[enemy] = { Billboard = billboard, HPLabel = hpLabel }
-    
-    local humanoid = enemy:FindFirstChild("Humanoid")
-    if humanoid then
-        humanoid:GetPropertyChangedSignal("Health"):Connect(function()
-            if humanoid.Health <= 0 then
-                if nameTags[enemy] and nameTags[enemy].Billboard then
-                    nameTags[enemy].Billboard:Destroy()
-                end
-                nameTags[enemy] = nil
-            else
-                local healthPercent = math.floor((humanoid.Health / humanoid.MaxHealth) * 100)
-                hpLabel.Text = "❤️ " .. healthPercent .. "%"
-                if healthPercent > 75 then
-                    hpLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
-                elseif healthPercent > 50 then
-                    hpLabel.TextColor3 = Color3.fromRGB(255, 255, 0)
-                elseif healthPercent > 25 then
-                    hpLabel.TextColor3 = Color3.fromRGB(255, 165, 0)
-                else
-                    hpLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
-                end
-            end
-        end)
-    end
+    return self
 end
 
-local function updateNameTags()
-    if not showNamesAtivo then
-        for enemy in pairs(nameTags) do
-            if nameTags[enemy] and nameTags[enemy].Billboard then
-                nameTags[enemy].Billboard:Destroy()
-            end
-        end
-        nameTags = {}
-        return
-    end
+function HigorGUI:Init()
+    local player = game.Players.LocalPlayer
+    local playerGui = player:WaitForChild("PlayerGui")
     
-    local dungeon = workspace:FindFirstChild("dungeon")
-    if dungeon then
-        for _, room in pairs(dungeon:GetChildren()) do
-            local enemies = room:FindFirstChild("enemyFolder")
-            if enemies then
-                for _, enemy in pairs(enemies:GetChildren()) do
-                    if enemy:FindFirstChild("Humanoid") and enemy.Humanoid.Health > 0 then
-                        createNameTag(enemy)
-                    end
+    self.ScreenGui = Instance.new("ScreenGui")
+    self.ScreenGui.Name = "HigorGUI"
+    self.ScreenGui.ResetOnSpawn = false
+    self.ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    self.ScreenGui.Parent = playerGui
+    
+    self:SetupInput()
+end
+
+function HigorGUI:CreateWindow(title, x, y, width, height)
+    local windowFrame = Instance.new("Frame")
+    windowFrame.Name = title
+    windowFrame.Size = UDim2.new(0, width, 0, height)
+    windowFrame.Position = UDim2.new(0, x, 0, y)
+    windowFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 35)
+    windowFrame.BorderColor3 = Color3.fromRGB(157, 78, 221)
+    windowFrame.BorderSizePixel = 2
+    windowFrame.Parent = self.ScreenGui
+    
+    self.SavedPositions[title] = {x = x, y = y}
+    
+    local titleBar = Instance.new("Frame")
+    titleBar.Name = "TitleBar"
+    titleBar.Size = UDim2.new(1, 0, 0, 25)
+    titleBar.BackgroundColor3 = Color3.fromRGB(157, 78, 221)
+    titleBar.BorderSizePixel = 0
+    titleBar.Parent = windowFrame
+    
+    local titleText = Instance.new("TextLabel")
+    titleText.Text = title:upper()
+    titleText.Size = UDim2.new(1, 0, 1, 0)
+    titleText.BackgroundTransparency = 1
+    titleText.TextColor3 = Color3.fromRGB(255, 255, 255)
+    titleText.TextSize = 12
+    titleText.Font = Enum.Font.GothamBold
+    titleText.TextXAlignment = Enum.TextXAlignment.Center
+    titleText.Parent = titleBar
+    
+    local contentFrame = Instance.new("Frame")
+    contentFrame.Name = "Content"
+    contentFrame.Size = UDim2.new(1, 0, 1, -25)
+    contentFrame.Position = UDim2.new(0, 0, 0, 25)
+    contentFrame.BackgroundTransparency = 1
+    contentFrame.BorderSizePixel = 0
+    contentFrame.Parent = windowFrame
+    
+    self:MakeDraggable(windowFrame, titleBar)
+    
+    local windowData = {
+        Frame = windowFrame,
+        TitleBar = titleBar,
+        Content = contentFrame,
+        Modules = {},
+        Title = title,
+        ModuleCount = 0
+    }
+    
+    table.insert(self.Windows, windowData)
+    return windowData
+end
+
+function HigorGUI:AddToggle(window, name, default, callback)
+    local toggleFrame = Instance.new("Frame")
+    toggleFrame.Name = name
+    toggleFrame.Size = UDim2.new(1, -4, 0, 22)
+    toggleFrame.Position = UDim2.new(0, 2, 0, window.ModuleCount * 24)
+    toggleFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 45)
+    toggleFrame.BorderColor3 = Color3.fromRGB(100, 100, 120)
+    toggleFrame.BorderSizePixel = 1
+    toggleFrame.Parent = window.Content
+    
+    local label = Instance.new("TextLabel")
+    label.Text = name
+    label.Size = UDim2.new(0.55, 0, 1, 0)
+    label.BackgroundTransparency = 1
+    label.TextColor3 = Color3.fromRGB(200, 200, 200)
+    label.TextSize = 10
+    label.Font = Enum.Font.Gotham
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = toggleFrame
+    
+    local toggleBtn = Instance.new("TextButton")
+    toggleBtn.Name = "Toggle"
+    toggleBtn.Text = default and "ON" or "OFF"
+    toggleBtn.Size = UDim2.new(0.45, -2, 1, -2)
+    toggleBtn.Position = UDim2.new(0.55, 2, 0, 1)
+    toggleBtn.BackgroundColor3 = default and Color3.fromRGB(0, 180, 100) or Color3.fromRGB(200, 50, 50)
+    toggleBtn.BorderSizePixel = 0
+    toggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    toggleBtn.TextSize = 9
+    toggleBtn.Font = Enum.Font.GothamBold
+    toggleBtn.Parent = toggleFrame
+    
+    local state = default
+    
+    toggleBtn.MouseButton1Click:Connect(function()
+        state = not state
+        toggleBtn.Text = state and "ON" or "OFF"
+        toggleBtn.BackgroundColor3 = state and Color3.fromRGB(0, 180, 100) or Color3.fromRGB(200, 50, 50)
+        if callback then callback(state) end
+    end)
+    
+    toggleBtn.MouseEnter:Connect(function()
+        toggleBtn.BackgroundColor3 = state and Color3.fromRGB(0, 200, 120) or Color3.fromRGB(220, 70, 70)
+    end)
+    
+    toggleBtn.MouseLeave:Connect(function()
+        toggleBtn.BackgroundColor3 = state and Color3.fromRGB(0, 180, 100) or Color3.fromRGB(200, 50, 50)
+    end)
+    
+    window.ModuleCount = window.ModuleCount + 1
+    local newHeight = 25 + (window.ModuleCount * 24)
+    window.Frame.Size = UDim2.new(0, window.Frame.Size.X.Offset, 0, newHeight)
+    
+    table.insert(window.Modules, toggleFrame)
+end
+
+function HigorGUI:AddButton(window, name, callback)
+    local btnFrame = Instance.new("Frame")
+    btnFrame.Name = name
+    btnFrame.Size = UDim2.new(1, -4, 0, 22)
+    btnFrame.Position = UDim2.new(0, 2, 0, window.ModuleCount * 24)
+    btnFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 45)
+    btnFrame.BorderColor3 = Color3.fromRGB(100, 100, 120)
+    btnFrame.BorderSizePixel = 1
+    btnFrame.Parent = window.Content
+    
+    local btn = Instance.new("TextButton")
+    btn.Text = name
+    btn.Size = UDim2.new(1, -2, 1, -2)
+    btn.Position = UDim2.new(0, 1, 0, 1)
+    btn.BackgroundColor3 = Color3.fromRGB(30, 30, 45)
+    btn.BorderSizePixel = 0
+    btn.TextColor3 = Color3.fromRGB(200, 200, 200)
+    btn.TextSize = 10
+    btn.Font = Enum.Font.Gotham
+    btn.Parent = btnFrame
+    
+    btn.MouseEnter:Connect(function()
+        btn.BackgroundColor3 = Color3.fromRGB(50, 50, 70)
+    end)
+    
+    btn.MouseLeave:Connect(function()
+        btn.BackgroundColor3 = Color3.fromRGB(30, 30, 45)
+    end)
+    
+    btn.MouseButton1Click:Connect(function()
+        btn.BackgroundColor3 = Color3.fromRGB(157, 78, 221)
+        if callback then callback() end
+        task.wait(0.1)
+        btn.BackgroundColor3 = Color3.fromRGB(50, 50, 70)
+    end)
+    
+    window.ModuleCount = window.ModuleCount + 1
+    local newHeight = 25 + (window.ModuleCount * 24)
+    window.Frame.Size = UDim2.new(0, window.Frame.Size.X.Offset, 0, newHeight)
+    
+    table.insert(window.Modules, btnFrame)
+end
+
+function HigorGUI:MakeDraggable(frame, titleBar)
+    local dragging = false
+    local dragStart = nil
+    local dragOffset = nil
+    local self = self
+    
+    titleBar.MouseButton1Down:Connect(function()
+        dragging = true
+        dragStart = game:GetService("UserInputService"):GetMouseLocation()
+        dragOffset = frame.Position - UDim2.new(0, dragStart.X, 0, dragStart.Y)
+    end)
+    
+    game:GetService("UserInputService").InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            if dragging then
+                self.SavedPositions[frame.Name] = {
+                    x = frame.Position.X.Offset,
+                    y = frame.Position.Y.Offset
+                }
+            end
+            dragging = false
+        end
+    end)
+    
+    game:GetService("UserInputService").InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.Mouse then
+            local mouse = game.Players.LocalPlayer:GetMouse()
+            frame.Position = UDim2.new(0, mouse.X, 0, mouse.Y) + dragOffset
+        end
+    end)
+end
+
+function HigorGUI:SetupInput()
+    game:GetService("UserInputService").InputBegan:Connect(function(input, gameProcessed)
+        if gameProcessed then return end
+        if input.KeyCode == self.ToggleKey then
+            self.GUIActive = not self.GUIActive
+            
+            for _, window in ipairs(self.Windows) do
+                window.Frame.Visible = self.GUIActive
+                
+                if self.GUIActive and self.SavedPositions[window.Title] then
+                    local pos = self.SavedPositions[window.Title]
+                    window.Frame.Position = UDim2.new(0, pos.x, 0, pos.y)
                 end
             end
         end
-    end
+    end)
 end
 
--- ===== JANELAS FLUTUANTES =====
-
--- Janela COMBATE
-local windowCombate = GUI:CreateWindow("Combate", 50, 50, 180, 100)
-GUI:AddToggle(windowCombate, "Ataque Aéreo", false, function(state)
-    aerialAttackAtivo = state
-end)
-GUI:AddToggle(windowCombate, "Auto Attack", false, function(state)
-    autoAttackAtivo = state
-end)
-GUI:AddToggle(windowCombate, "Auto Farm", false, function(state)
-    autoFarmAtivo = state
-end)
-
--- Janela MOVIMENTOS
-local windowMovimentos = GUI:CreateWindow("Movimentos", 250, 50, 180, 100)
-GUI:AddToggle(windowMovimentos, "Teleporte", false, function(state)
-end)
-GUI:AddToggle(windowMovimentos, "Velocidade", false, function(state)
-end)
-GUI:AddToggle(windowMovimentos, "Voo", false, function(state)
-end)
-
--- Janela VISUAL
-local windowVisual = GUI:CreateWindow("Visual", 450, 50, 180, 100)
-GUI:AddToggle(windowVisual, "ESP", false, function(state)
-end)
-GUI:AddToggle(windowVisual, "Hitbox", false, function(state)
-end)
-GUI:AddToggle(windowVisual, "Mostrar Nomes", false, function(state)
-    showNamesAtivo = state
-    updateNameTags()
-end)
-
--- Janela CONFIGS
-local windowConfigs = GUI:CreateWindow("Configs", 650, 50, 180, 60)
-GUI:AddButton(windowConfigs, "Remover Script", function()
-    scriptAtivo = false
-    for enemy in pairs(nameTags) do
-        if nameTags[enemy] and nameTags[enemy].Billboard then
-            nameTags[enemy].Billboard:Destroy()
-        end
-    end
-    GUI.ScreenGui:Destroy()
-end)
-
-print("✓ Script carregado! Pressione G para toggle | Arraste pelo título")
+return HigorGUI
