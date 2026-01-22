@@ -1,6 +1,9 @@
--- HigorGUI Simple - GUI funcional para Roblox
+-- HigorGUI Final - Baseado no VapeV4
 local HigorGUI = {}
 HigorGUI.__index = HigorGUI
+
+local inputService = game:GetService("UserInputService")
+local guiService = game:GetService("GuiService")
 
 function HigorGUI.new(config)
     local self = setmetatable({}, HigorGUI)
@@ -10,8 +13,7 @@ function HigorGUI.new(config)
     
     self.Windows = {}
     self.SavedPositions = {}
-    self.DraggingWindow = nil
-    self.GUIActive = false
+    self.Scale = 1
     
     self:Init()
     
@@ -68,7 +70,7 @@ function HigorGUI:CreateWindow(title, x, y, width, height)
     contentFrame.BorderSizePixel = 0
     contentFrame.Parent = windowFrame
     
-    self:MakeDraggable(windowFrame, titleBar)
+    self:SetupDrag(windowFrame)
     
     local windowData = {
         Frame = windowFrame,
@@ -182,56 +184,42 @@ function HigorGUI:AddButton(window, name, callback)
     table.insert(window.Modules, btnFrame)
 end
 
-function HigorGUI:MakeDraggable(frame, titleBar)
-    local dragging = false
-    local dragOffset = nil
+function HigorGUI:SetupDrag(gui)
     local self = self
-    local UIS = game:GetService("UserInputService")
-    local mouse = game.Players.LocalPlayer:GetMouse()
     
-    titleBar.InputBegan:Connect(function(input, gameProcessed)
+    inputService.InputBegan:Connect(function(inputObj, gameProcessed)
         if gameProcessed then return end
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = true
-            dragOffset = frame.Position - UDim2.new(0, mouse.X, 0, mouse.Y)
-        end
-    end)
-    
-    titleBar.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            if dragging then
-                self.SavedPositions[frame.Name] = {
-                    x = frame.Position.X.Offset,
-                    y = frame.Position.Y.Offset
-                }
-            end
-            dragging = false
-        end
-    end)
-    
-    UIS.InputChanged:Connect(function(input)
-        if dragging and input.UserInputType == Enum.UserInputType.Mouse then
-            frame.Position = UDim2.new(0, mouse.X, 0, mouse.Y) + dragOffset
-        end
-    end)
-end
-
-function HigorGUI:SetupInput()
-    game:GetService("UserInputService").InputBegan:Connect(function(input, gameProcessed)
-        if gameProcessed then return end
-        if input.KeyCode == self.ToggleKey then
-            self.GUIActive = not self.GUIActive
+        
+        if (inputObj.UserInputType == Enum.UserInputType.MouseButton1 or inputObj.UserInputType == Enum.UserInputType.Touch) then
+            local mousePos = inputObj.Position
+            local guiPos = gui.AbsolutePosition
+            local guiSize = gui.AbsoluteSize
             
-            for _, window in ipairs(self.Windows) do
-                window.Frame.Visible = self.GUIActive
+            -- Verificar se clicou na barra de título
+            if mousePos.Y >= guiPos.Y and mousePos.Y <= guiPos.Y + 25 and
+               mousePos.X >= guiPos.X and mousePos.X <= guiPos.X + guiSize.X then
                 
-                if self.GUIActive and self.SavedPositions[window.Title] then
-                    local pos = self.SavedPositions[window.Title]
-                    window.Frame.Position = UDim2.new(0, pos.x, 0, pos.y)
-                end
-            end
-        end
-    end)
-end
+                local dragPosition = Vector2.new(
+                    guiPos.X - mousePos.X,
+                    guiPos.Y - mousePos.Y + guiService:GetGuiInset().Y
+                ) / self.Scale
+                
+                local changed = inputService.InputChanged:Connect(function(input)
+                    if input.UserInputType == Enum.UserInputType.MouseMovement then
+                        local position = input.Position
+                        gui.Position = UDim2.fromOffset(
+                            (position.X / self.Scale) + dragPosition.X,
+                            (position.Y / self.Scale) + dragPosition.Y
+                        )
+                    end
+                end)
+                
+                local ended
+                ended = inputObj.Changed:Connect(function()
+                    if inputObj.UserInputState == Enum.UserInputState.End then
+                        if changed then changed:Disconnect() end
+                        if ended then ended:Disconnect() end
+                        
+                        self.SavedPositions[gui.Name] = {\n                            x = gui.Position.X.Offset,\n                            y = gui.Position.Y.Offset\n                        }\n                    end\n                end)\n            end\n        end\n    end)\nend\n\nfunction HigorGUI:SetupInput()\n    inputService.InputBegan:Connect(function(input, gameProcessed)\n        if gameProcessed then return end\n        if input.KeyCode == self.ToggleKey then\n            for _, window in ipairs(self.Windows) do\n                window.Frame.Visible = not window.Frame.Visible\n                \n                if window.Frame.Visible and self.SavedPositions[window.Title] then\n                    local pos = self.SavedPositions[window.Title]\n                    window.Frame.Position = UDim2.new(0, pos.x, 0, pos.y)\n                end\n            end\n        end\n    end)\nend\n\nreturn HigorGUI
 
-return HigorGUI
+
