@@ -1,4 +1,4 @@
--- vapegui.lua
+-- vapegui.lua - GUI Library (baseada no seu código original, sem módulos fixos)
 local mainapi = {
 	Connections = {},
 	Categories = {},
@@ -534,10 +534,7 @@ for _, v in {'Combat', 'Blatant', 'Render', 'Utility', 'World', 'Inventory', 'Mi
 	mainapi:CreateCategory({Name = v})
 end
 
--- REMOVENDO O LOOP DE 60 MÓDULOS
--- NÃO VAMOS CRIAR OS 60 MÓDULOS 'mod1' a 'mod60'
-
--- TAMBÉM REMOVEMOS A CRIAÇÃO DOS 3 MÓDULOS (Auto Ataque, Ataque Aereo, Nomes e Vida)
+-- NOTA: Removemos a criação dos 3 módulos fixos. Eles serão criados pelo script principal.
 
 mainapi:Clean(clickgui.MouseButton1Click:Connect(function()
 	if expanded then expanded:Expand() end
