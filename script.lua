@@ -452,6 +452,13 @@ FlyModule:AddSlider("Velocidade", 20, 200, flySpeed, function(valor)
     Config.Settings.FlySpeed = valor; flySpeed = valor; SaveSettings()
 end)
 
+-- Carregar Lógica do HUD (Externo)
+local hudControls = loadstring(game:HttpGet("https://raw.githubusercontent.com/Neospeed1kk/RochaFace/refs/heads/main/hudcustomizer.lua" ))()
+if Config.HUD and hudControls.LoadConfig then
+    hudControls.LoadConfig(Config.HUD)
+end
+
+
 -- ========== CATEGORIA: VISUAIS ==========
 NomeModule = Visual:AddModule("Nome", function(estado) showNamesAtivo = estado; updateNameTags() end, false)
 FullbrightModule = Visual:AddModule("Fullbright", function(estado) toggleFullbright(estado) end, false)
@@ -467,6 +474,21 @@ Utils:AddModule("Salvar Configurações", function()
     SaveSettings()
     print("💾 Configurações salvas!")
 end, true)
+-- ========== SEÇÃO: PERFIL HUD (INTEGRADO NA GUI) ==========
+local PerfilHudMod = Visual:AddModule("Perfil Hud", function() 
+    hudControls.Toggle() -- Abre a janela de customização ao clicar
+end, true)
+
+PerfilHudMod:AddModule("Abrir Menu Cores", function() hudControls.SetVisible(true) end, true)
+PerfilHudMod:AddSlider("Velocidade Rainbow", 5, 50, Config.Settings.RainbowSpeed, function(v) 
+    Config.Settings.RainbowSpeed = v
+    if hudControls.SetRainbowSpeed then hudControls.SetRainbowSpeed(v) end
+end)
+PerfilHudMod:AddModule("Resetar Padrão", function()
+    Config.HUD = {}
+    if hudControls.LoadConfig then hudControls.LoadConfig({}) end
+end, true)
+
 
 Utils:AddModule("Remover Script", function()
     scriptAtivo = false; autoFarmAtivo = false; autoAttackAtivo = false; aerialAttackAtivo = false; showNamesAtivo = false
@@ -518,6 +540,17 @@ task.spawn(function()
 end)
 task.spawn(function() while scriptAtivo do if autoAttackAtivo then vim:SendMouseButtonEvent(0, 0, 0, true, game, 0); task.wait(0.01); vim:SendMouseButtonEvent(0, 0, 0, false, game, 0) end; task.wait(0.1) end end)
 task.spawn(function() while scriptAtivo do if showNamesAtivo then updateNameTags() end; task.wait(0.5) end end)
+-- Loop de Salvamento Unificado (Salva HUD e Configs)
+task.spawn(function()
+    while scriptAtivo do
+        task.wait(10)
+        if hudControls.GetConfig then
+            Config.HUD = hudControls.GetConfig()
+        end
+        SaveSettings()
+    end
+end)
+
 task.spawn(function() while scriptAtivo do task.wait(10); SaveSettings() end end)
 
 print("✅ Script Principal Atualizado com Sucesso!")
