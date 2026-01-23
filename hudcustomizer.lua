@@ -1,44 +1,25 @@
 --[[
-    HUD CUSTOMIZER V11 - VERSÃO HOSPEDÁVEL
-    - Inicia OCULTO por padrão (MainFrame.Visible = false)
-    - Permite controle externo via funções globais
-    - Não auto-executa, espera controle externo
+    HUD CUSTOMIZER V12 FINAL (SAVE SYSTEM)
+    - Suporte para GetConfig() e LoadConfig()
+    - Integrado ao sistema de save JSON do script principal
+    - Reset de Fábrica, Rainbow Suave e Limpeza Nuclear
 ]]
 
--- Evita carregar múltiplas vezes
-if _G.HUD_CUSTOMIZER_V11_LOADED then
-    -- Se já carregado, apenas retorna as funções de controle
-    return {
-        Toggle = function()
-            if _G.HUD_MASTER_FRAME then
-                _G.HUD_MASTER_FRAME.Visible = not _G.HUD_MASTER_FRAME.Visible
-            end
-        end,
-        SetVisible = function(state)
-            if _G.HUD_MASTER_FRAME then
-                _G.HUD_MASTER_FRAME.Visible = state
-            end
-        end,
-        IsVisible = function()
-            return _G.HUD_MASTER_FRAME and _G.HUD_MASTER_FRAME.Visible or false
-        end,
-        SetRainbowSpeed = function(speed)
-            _G.RAINBOW_SPEED = speed or 15
-        end
-    }
-end
-
-_G.HUD_CUSTOMIZER_V11_LOADED = true
-
 -- Limpeza de instâncias anteriores
-if _G.HUDMasterV11_Instance then
-    _G.HUDMasterV11_Instance:Destroy()
-end
+if _G.HUDMasterV12_Instance then _G.HUDMasterV12_Instance:Destroy() end
+
+local ScreenGui = Instance.new("ScreenGui")
+local MainFrame = Instance.new("Frame")
+local TitleBar = Instance.new("Frame")
+local Title = Instance.new("TextLabel")
+local CloseBtn = Instance.new("TextButton")
+local Content = Instance.new("ScrollingFrame")
+local UIListLayout = Instance.new("UIListLayout")
 
 -- Configurações de Design
 local GUI_BG = Color3.fromRGB(10, 10, 12)
 local ACCENT = Color3.fromRGB(0, 255, 200)
-_G.RAINBOW_SPEED = 15
+local RAINBOW_SPEED = 15
 
 -- CORES NATIVAS DO JOGO
 local NATIVE_COLORS = {
@@ -50,14 +31,11 @@ local NATIVE_COLORS = {
     Title = Color3.fromRGB(255, 255, 255)
 }
 
--- Criar interface
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "HUDMasterV11"
+ScreenGui.Name = "HUDMasterV12"
 ScreenGui.Parent = game.CoreGui
 ScreenGui.ResetOnSpawn = false
-_G.HUDMasterV11_Instance = ScreenGui
+_G.HUDMasterV12_Instance = ScreenGui
 
-local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
 MainFrame.Parent = ScreenGui
 MainFrame.BackgroundColor3 = GUI_BG
@@ -65,13 +43,10 @@ MainFrame.BorderSizePixel = 0
 MainFrame.Position = UDim2.new(0.5, -185, 0.5, -275)
 MainFrame.Size = UDim2.new(0, 370, 0, 550)
 MainFrame.Active = true
-MainFrame.Visible = false -- INICIA OCULTO
-_G.HUD_MASTER_FRAME = MainFrame -- Referência global para controle
-
 Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 12)
 
--- Barra de título
-local TitleBar = Instance.new("Frame")
+_G.ToggleHUDCustomizer = function() MainFrame.Visible = not MainFrame.Visible end
+
 TitleBar.Name = "TitleBar"
 TitleBar.Parent = MainFrame
 TitleBar.Size = UDim2.new(1, 0, 0, 40)
@@ -79,25 +54,17 @@ TitleBar.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
 TitleBar.BorderSizePixel = 0
 Instance.new("UICorner", TitleBar).CornerRadius = UDim.new(0, 12)
 
--- Sistema de arrastar
 local UserInputService = game:GetService("UserInputService")
 local dragging, dragInput, dragStart, startPos
 
 TitleBar.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        dragging = true
-        dragStart = input.Position
-        startPos = MainFrame.Position
-        input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then dragging = false end
-        end)
+        dragging = true; dragStart = input.Position; startPos = MainFrame.Position
+        input.Changed:Connect(function() if input.UserInputState == Enum.UserInputState.End then dragging = false end end)
     end
 end)
 
-TitleBar.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseMovement then dragInput = input end
-end)
-
+TitleBar.InputChanged:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseMovement then dragInput = input end end)
 UserInputService.InputChanged:Connect(function(input)
     if input == dragInput and dragging then
         local delta = input.Position - dragStart
@@ -105,21 +72,17 @@ UserInputService.InputChanged:Connect(function(input)
     end
 end)
 
--- Título
-local Title = Instance.new("TextLabel")
 Title.Name = "Title"
 Title.Parent = TitleBar
 Title.BackgroundTransparency = 1
 Title.Position = UDim2.new(0, 15, 0, 0)
 Title.Size = UDim2.new(0, 250, 1, 0)
 Title.Font = Enum.Font.GothamBold
-Title.Text = "HUD CUSTOMIZER V11"
+Title.Text = "HUD CUSTOMIZER V12"
 Title.TextColor3 = ACCENT
 Title.TextSize = 12
 Title.TextXAlignment = Enum.TextXAlignment.Left
 
--- Botão fechar
-local CloseBtn = Instance.new("TextButton")
 CloseBtn.Name = "CloseBtn"
 CloseBtn.Parent = TitleBar
 CloseBtn.BackgroundTransparency = 1
@@ -129,13 +92,8 @@ CloseBtn.Font = Enum.Font.GothamBold
 CloseBtn.Text = "×"
 CloseBtn.TextColor3 = Color3.fromRGB(255, 80, 80)
 CloseBtn.TextSize = 24
+CloseBtn.MouseButton1Click:Connect(function() MainFrame.Visible = false end)
 
-CloseBtn.MouseButton1Click:Connect(function()
-    MainFrame.Visible = false
-end)
-
--- Conteúdo
-local Content = Instance.new("ScrollingFrame")
 Content.Name = "Content"
 Content.Parent = MainFrame
 Content.BackgroundTransparency = 1
@@ -144,16 +102,11 @@ Content.Size = UDim2.new(1, -20, 1, -55)
 Content.CanvasSize = UDim2.new(0, 0, 0, 1600)
 Content.ScrollBarThickness = 2
 
-local UIListLayout = Instance.new("UIListLayout")
 UIListLayout.Parent = Content
 UIListLayout.Padding = UDim.new(0, 15)
 UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 
--- Funções utilitárias
-local function colorToHex(color)
-    return string.format("#%02X%02X%02X", math.floor(color.R * 255), math.floor(color.G * 255), math.floor(color.B * 255))
-end
-
+local function colorToHex(color) return string.format("#%02X%02X%02X", math.floor(color.R * 255), math.floor(color.G * 255), math.floor(color.B * 255)) end
 local function hexToColor3(hex)
     hex = hex:gsub("#", "")
     if #hex == 6 then
@@ -163,10 +116,9 @@ local function hexToColor3(hex)
     return Color3.fromRGB(255, 255, 255)
 end
 
--- Estado do HUD
 local State = { IsUpdating = false, Originals = {} }
+local sections = {}
 
--- Função para criar seções
 local function createSection(name, targetName, layoutOrder, config)
     config = config or {}
     local isSpecial = config.isSpecial
@@ -305,7 +257,9 @@ local function createSection(name, targetName, layoutOrder, config)
         input = input,
         hex = hexInput,
         rainbow = function() return rainbowEnabled end,
+        setRainbow = function(v) rainbowEnabled = v; rainbowBtn.Text = "Rainbow: " .. (v and "ON" or "OFF"); rainbowBtn.TextColor3 = v and ACCENT or Color3.new(1,1,1) end,
         visible = function() return visible end,
+        setVisible = function(v) visible = v; if visBtn then visBtn.Text = "Visível: " .. (v and "SIM" or "NÃO"); visBtn.TextColor3 = v and Color3.fromRGB(100, 255, 100) or Color3.fromRGB(255, 100, 100) end end,
         trans = transInput,
         preview = colorPreview,
         knob = knob
@@ -327,16 +281,12 @@ local function createSection(name, targetName, layoutOrder, config)
         local player = game.Players.LocalPlayer
         local nameplate = player.Character and player.Character:FindFirstChild("Head") and player.Character.Head:FindFirstChild("playerNameplate")
         if not nameplate then return end
-        
         local col = hexToColor3(hexInput.Text)
         colorPreview.BackgroundColor3 = col
-
         local function applyToObj(obj)
             if not obj then return end
             obj.Visible = visible
-            for _, stroke in pairs(obj:GetDescendants()) do
-                if stroke:IsA("UIStroke") then stroke.Enabled = visible end
-            end
+            for _, stroke in pairs(obj:GetDescendants()) do if stroke:IsA("UIStroke") then stroke.Enabled = visible end end
             if obj:IsA("TextLabel") then
                 if input then obj.Text = input.Text end
                 obj:SetAttribute("Rainbow", rainbowEnabled)
@@ -347,48 +297,22 @@ local function createSection(name, targetName, layoutOrder, config)
                 if transInput then obj.BackgroundTransparency = tonumber(transInput.Text) or 0 end
             end
         end
-
         if targetName == "HealthBarFrame" then
-            local hb = nameplate:FindFirstChild("HealthBar")
-            local bar = hb and hb:FindFirstChild("Frame")
-            if bar then 
-                applyToObj(bar)
-                local grad = bar:FindFirstChildOfClass("UIGradient")
-                if grad then grad.Enabled = not rainbowEnabled and (tonumber(transInput.Text or 0) < 1) end
-            end
+            local hb = nameplate:FindFirstChild("HealthBar"); local bar = hb and hb:FindFirstChild("Frame")
+            if bar then applyToObj(bar); local grad = bar:FindFirstChildOfClass("UIGradient"); if grad then grad.Enabled = not rainbowEnabled and (tonumber(transInput.Text or 0) < 1) end end
             if hb then hb.Visible = visible end
         elseif targetName == "BGFrames" then
-            for _, bg in pairs(nameplate:GetChildren()) do
-                if bg.Name == "BG" and bg:IsA("Frame") then applyToObj(bg) end
-            end
+            for _, bg in pairs(nameplate:GetChildren()) do if bg.Name == "BG" and bg:IsA("Frame") then applyToObj(bg) end end
         elseif targetName == "Images" then
-            applyToObj(nameplate:FindFirstChild("BasicImage"))
-            applyToObj(nameplate:FindFirstChild("DQPlusImage"))
-        else
-            applyToObj(nameplate:FindFirstChild(targetName))
-        end
+            applyToObj(nameplate:FindFirstChild("BasicImage")); applyToObj(nameplate:FindFirstChild("DQPlusImage"))
+        else applyToObj(nameplate:FindFirstChild(targetName)) end
     end
 
     if input then input:GetPropertyChangedSignal("Text"):Connect(triggerUpdate) end
     hexInput:GetPropertyChangedSignal("Text"):Connect(triggerUpdate)
     if transInput then transInput:GetPropertyChangedSignal("Text"):Connect(triggerUpdate) end
-    
-    rainbowBtn.MouseButton1Click:Connect(function()
-        rainbowEnabled = not rainbowEnabled
-        rainbowBtn.Text = "Rainbow: " .. (rainbowEnabled and "ON" or "OFF")
-        rainbowBtn.TextColor3 = rainbowEnabled and ACCENT or Color3.new(1,1,1)
-        triggerUpdate()
-    end)
-
-    if visBtn then
-        visBtn.MouseButton1Click:Connect(function()
-            visible = not visible
-            visBtn.Text = "Visível: " .. (visible and "SIM" or "NÃO")
-            visBtn.TextColor3 = visible and Color3.fromRGB(100, 255, 100) or Color3.fromRGB(255, 100, 100)
-            triggerUpdate()
-        end)
-    end
-
+    rainbowBtn.MouseButton1Click:Connect(function() sectionData.setRainbow(not rainbowEnabled); triggerUpdate() end)
+    if visBtn then visBtn.MouseButton1Click:Connect(function() sectionData.setVisible(not visible); triggerUpdate() end) end
     resetBtn.MouseButton1Click:Connect(function()
         State.IsUpdating = true
         local nativeCol = NATIVE_COLORS[targetName] or Color3.new(1,1,1)
@@ -396,49 +320,37 @@ local function createSection(name, targetName, layoutOrder, config)
         if input then input.Text = nativeText end
         hexInput.Text = colorToHex(nativeCol)
         if transInput then transInput.Text = "0" end
-        visible = true
-        if visBtn then 
-            visBtn.Text = "Visível: SIM"
-            visBtn.TextColor3 = Color3.fromRGB(100, 255, 100)
-        end
-        rainbowEnabled = false
-        rainbowBtn.Text = "Rainbow: OFF"
-        rainbowBtn.TextColor3 = Color3.new(1,1,1)
-        State.IsUpdating = false
-        triggerUpdate()
+        sectionData.setVisible(true); sectionData.setRainbow(false)
+        State.IsUpdating = false; triggerUpdate()
     end)
 
+    sections[targetName] = sectionData
     return sectionData
 end
 
--- Criar seções
-local sections = {
-    createSection("NOME", "PlayerName", 1, {hasVisibility = true}),
-    createSection("TÍTULO", "Title", 2, {hasVisibility = true}),
-    createSection("LEVEL", "Level", 3, {hasVisibility = true}),
-    createSection("VIDA (TEXTO)", "Health", 4, {hasVisibility = true}),
-    createSection("COR DA BARRA DE VIDA", "HealthBarFrame", 5, {isSpecial = true, hasVisibility = true, hasTransparency = true}),
-    createSection("COR DO FUNDO (BG)", "BGFrames", 6, {isSpecial = true, hasVisibility = true, hasTransparency = true}),
-    createSection("MOLDURA E ÍCONES", "Images", 7, {isSpecial = true, hasVisibility = true})
-}
+createSection("NOME", "PlayerName", 1, {hasVisibility = true})
+createSection("TÍTULO", "Title", 2, {hasVisibility = true})
+createSection("LEVEL", "Level", 3, {hasVisibility = true})
+createSection("VIDA (TEXTO)", "Health", 4, {hasVisibility = true})
+createSection("COR DA BARRA DE VIDA", "HealthBarFrame", 5, {isSpecial = true, hasVisibility = true, hasTransparency = true})
+createSection("COR DO FUNDO (BG)", "BGFrames", 6, {isSpecial = true, hasVisibility = true, hasTransparency = true})
+createSection("MOLDURA E ÍCONES", "Images", 7, {isSpecial = true, hasVisibility = true})
 
--- Carregar dados atuais
 local function loadCurrentData()
     State.IsUpdating = true
     local player = game.Players.LocalPlayer
     local nameplate = player.Character and player.Character:FindFirstChild("Head") and player.Character.Head:FindFirstChild("playerNameplate")
     if nameplate then
-        for _, s in pairs(sections) do
-            local obj = nameplate:FindFirstChild(s.targetName)
+        for targetName, s in pairs(sections) do
+            local obj = nameplate:FindFirstChild(targetName)
             if obj and obj:IsA("TextLabel") then
-                State.Originals[s.targetName] = obj.Text
+                State.Originals[targetName] = obj.Text
                 s.input.Text = obj.Text
                 s.hex.Text = colorToHex(obj.TextColor3)
-            elseif s.targetName == "HealthBarFrame" then
-                local hb = nameplate:FindFirstChild("HealthBar")
-                local bar = hb and hb:FindFirstChild("Frame")
+            elseif targetName == "HealthBarFrame" then
+                local hb = nameplate:FindFirstChild("HealthBar"); local bar = hb and hb:FindFirstChild("Frame")
                 if bar then s.hex.Text = colorToHex(bar.BackgroundColor3) end
-            elseif s.targetName == "BGFrames" then
+            elseif targetName == "BGFrames" then
                 local bg = nameplate:FindFirstChild("BG")
                 if bg then s.hex.Text = colorToHex(bg.BackgroundColor3) end
             end
@@ -449,45 +361,57 @@ local function loadCurrentData()
     State.IsUpdating = false
 end
 
-task.spawn(function() wait(1) loadCurrentData() end)
+task.spawn(function() wait(1); loadCurrentData() end)
 
--- Loop do efeito Rainbow
 game:GetService("RunService").RenderStepped:Connect(function()
     local player = game.Players.LocalPlayer
     local nameplate = player.Character and player.Character:FindFirstChild("Head") and player.Character.Head:FindFirstChild("playerNameplate")
     if not nameplate then return end
-    local rainbowColor = Color3.fromHSV((tick() / _G.RAINBOW_SPEED) % 1, 0.7, 1)
+    local rainbowColor = Color3.fromHSV((tick() / RAINBOW_SPEED) % 1, 0.7, 1)
     for _, label in pairs(nameplate:GetDescendants()) do
         if label:GetAttribute("Rainbow") then
             if label:IsA("Frame") then label.BackgroundColor3 = rainbowColor end
             if label:IsA("TextLabel") then label.TextColor3 = rainbowColor end
         end
     end
-    for _, bg in pairs(nameplate:GetChildren()) do
-        if bg.Name == "BG" and bg:GetAttribute("Rainbow") then bg.BackgroundColor3 = rainbowColor end
-    end
+    for _, bg in pairs(nameplate:GetChildren()) do if bg.Name == "BG" and bg:GetAttribute("Rainbow") then bg.BackgroundColor3 = rainbowColor end end
 end)
 
-game.Players.LocalPlayer.CharacterAdded:Connect(function() wait(2) loadCurrentData() end)
-
-print("✅ HUD Customizer V11 Hospedado - Carregado e Oculto")
-
--- Retorna funções de controle
-return {
-    Toggle = function()
-        if MainFrame then
-            MainFrame.Visible = not MainFrame.Visible
-        end
-    end,
-    SetVisible = function(state)
-        if MainFrame then
-            MainFrame.Visible = state
-        end
-    end,
-    IsVisible = function()
-        return MainFrame and MainFrame.Visible or false
-    end,
-    SetRainbowSpeed = function(speed)
-        _G.RAINBOW_SPEED = speed or 15
+-- FUNÇÕES DE EXPORTAÇÃO/IMPORTAÇÃO PARA O SAVE JSON
+local function GetConfig()
+    local config = {}
+    for targetName, s in pairs(sections) do
+        config[targetName] = {
+            Text = s.input and s.input.Text or nil,
+            ColorHex = s.hex.Text,
+            Rainbow = s.rainbow(),
+            Visible = s.visible(),
+            Trans = s.trans and s.trans.Text or nil
+        }
     end
+    return config
+end
+
+local function LoadConfig(config)
+    if not config then return end
+    State.IsUpdating = true
+    for targetName, saved in pairs(config) do
+        local s = sections[targetName]
+        if s then
+            if s.input and saved.Text then s.input.Text = saved.Text end
+            s.hex.Text = saved.ColorHex
+            s.setRainbow(saved.Rainbow)
+            s.setVisible(saved.Visible)
+            if s.trans and saved.Trans then s.trans.Text = saved.Trans end
+        end
+    end
+    State.IsUpdating = false
+end
+
+return {
+    Toggle = _G.ToggleHUDCustomizer,
+    SetVisible = function(v) MainFrame.Visible = v end,
+    GetConfig = GetConfig,
+    LoadConfig = LoadConfig,
+    SetRainbowSpeed = function(s) RAINBOW_SPEED = s end
 }
