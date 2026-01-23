@@ -1,4 +1,4 @@
--- Manus GUI Library V2 (Final com Componentes)
+-- Manus GUI Library V3 (Correção de Keybinds e Controle Manual)
 -- Hospedagem: https://raw.githubusercontent.com/Neospeed1kk/RochaFace/refs/heads/main/gui.lua
 
 local Library = {}
@@ -9,7 +9,6 @@ local Players = game:GetService("Players")
 local CoreGui = game:GetService("CoreGui")
 
 local player = Players.LocalPlayer
-local mouse = player:GetMouse()
 
 -- Configurações Internas
 Library.OpenKey = Enum.KeyCode.Insert
@@ -129,6 +128,7 @@ KeybindList.Padding = UDim.new(0, 5)
 KeybindList.HorizontalAlignment = Enum.HorizontalAlignment.Center
 KeybindList.Parent = KeybindContainer
 
+-- Função para adicionar Keybind na Settings (MANUAL)
 function Library:AddKeybind(label, defaultKey, callback)
     local Frame = Instance.new("Frame")
     Frame.Size = UDim2.new(0.9, 0, 0, 35)
@@ -149,28 +149,34 @@ function Library:AddKeybind(label, defaultKey, callback)
     BindBtn.Size = UDim2.new(0.35, 0, 0.8, 0)
     BindBtn.Position = UDim2.new(0.65, 0, 0.1, 0)
     BindBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-    BindBtn.Text = defaultKey.Name
+    BindBtn.Text = defaultKey and defaultKey.Name or "None"
     BindBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
     BindBtn.Font = Enum.Font.SourceSansBold
     BindBtn.Parent = Frame
     
+    local currentKey = defaultKey
     local binding = false
+    
     BindBtn.MouseButton1Click:Connect(function()
         binding = true
         BindBtn.Text = "..."
     end)
     
-    UserInputService.InputBegan:Connect(function(input)
+    UserInputService.InputBegan:Connect(function(input, gameProcessed)
         if binding and input.UserInputType == Enum.UserInputType.Keyboard then
             binding = false
-            BindBtn.Text = input.KeyCode.Name
-            callback(input.KeyCode)
+            currentKey = input.KeyCode
+            BindBtn.Text = currentKey.Name
+            if callback then callback(currentKey) end
+        elseif not gameProcessed and currentKey and input.KeyCode == currentKey then
+            if callback then callback(currentKey, true) end -- O segundo parâmetro 'true' indica que foi pressionado
         end
     end)
     
     KeybindContainer.CanvasSize = UDim2.new(0, 0, 0, KeybindList.AbsoluteContentSize.Y + 10)
 end
 
+-- Lógica de Settings
 SettingsBtn.MouseButton1Click:Connect(function()
     Library.SettingsOpen = not Library.SettingsOpen
     SettingsFrame.Visible = Library.SettingsOpen
@@ -227,8 +233,7 @@ function Library:CreateCategory(name, position)
         OptionsFrame.Visible = categoryObj.Expanded
     end)
     
-    function categoryObj:AddModule(moduleName, config)
-        config = config or {}
+    function categoryObj:AddModule(moduleName, callback)
         local moduleObj = { Enabled = false }
         
         local ModuleContainer = Instance.new("Frame")
@@ -265,10 +270,15 @@ function Library:CreateCategory(name, position)
             OptionsFrame.Size = UDim2.new(1, 0, 0, total)
         end
 
+        -- Função para alternar estado (Pode ser chamada externamente ou internamente)
+        function moduleObj:Toggle(state)
+            if state ~= nil then self.Enabled = state else self.Enabled = not self.Enabled end
+            ModuleBtn.TextColor3 = self.Enabled and Color3.fromRGB(0, 255, 120) or Color3.fromRGB(200, 200, 200)
+            if callback then callback(self.Enabled) end
+        end
+
         ModuleBtn.MouseButton1Click:Connect(function()
-            moduleObj.Enabled = not moduleObj.Enabled
-            ModuleBtn.TextColor3 = moduleObj.Enabled and Color3.fromRGB(0, 255, 120) or Color3.fromRGB(200, 200, 200)
-            if config.callback then config.callback(moduleObj.Enabled) end
+            moduleObj:Toggle()
         end)
         
         ModuleBtn.MouseButton2Click:Connect(function()
@@ -284,13 +294,12 @@ function Library:CreateCategory(name, position)
             updateCategorySize()
         end)
         
-        -- COMPONENTE: Slider
-        function moduleObj:AddSlider(name, min, max, default, callback)
+        -- Componentes (Slider, Dropdown, Toggle)
+        function moduleObj:AddSlider(name, min, max, default, cb)
             local SliderFrame = Instance.new("Frame")
             SliderFrame.Size = UDim2.new(1, 0, 0, 30)
             SliderFrame.BackgroundTransparency = 1
             SliderFrame.Parent = SubFrame
-            
             local Label = Instance.new("TextLabel")
             Label.Size = UDim2.new(1, 0, 0, 15)
             Label.Text = "    " .. name .. ": " .. default
@@ -300,42 +309,31 @@ function Library:CreateCategory(name, position)
             Label.TextXAlignment = Enum.TextXAlignment.Left
             Label.BackgroundTransparency = 1
             Label.Parent = SliderFrame
-            
             local Bar = Instance.new("Frame")
             Bar.Size = UDim2.new(0.8, 0, 0, 4)
             Bar.Position = UDim2.new(0.1, 0, 0.7, 0)
             Bar.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
             Bar.BorderSizePixel = 0
             Bar.Parent = SliderFrame
-            
             local Fill = Instance.new("Frame")
             Fill.Size = UDim2.new((default - min) / (max - min), 0, 1, 0)
             Fill.BackgroundColor3 = Color3.fromRGB(0, 255, 120)
             Fill.BorderSizePixel = 0
             Fill.Parent = Bar
-            
-            local function updateSlider(input)
+            local sliding = false
+            local function update(input)
                 local pos = math.clamp((input.Position.X - Bar.AbsolutePosition.X) / Bar.AbsoluteSize.X, 0, 1)
                 Fill.Size = UDim2.new(pos, 0, 1, 0)
                 local val = math.floor(min + (max - min) * pos)
                 Label.Text = "    " .. name .. ": " .. val
-                callback(val)
+                cb(val)
             end
-            
-            local sliding = false
-            Bar.InputBegan:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 then sliding = true end
-            end)
-            UserInputService.InputEnded:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 then sliding = false end
-            end)
-            UserInputService.InputChanged:Connect(function(input)
-                if sliding and input.UserInputType == Enum.UserInputType.MouseMovement then updateSlider(input) end
-            end)
+            Bar.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 then sliding = true end end)
+            UserInputService.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 then sliding = false end end)
+            UserInputService.InputChanged:Connect(function(input) if sliding and input.UserInputType == Enum.UserInputType.MouseMovement then update(input) end end)
         end
         
-        -- COMPONENTE: Dropdown
-        function moduleObj:AddDropdown(name, options, callback)
+        function moduleObj:AddDropdown(name, options, cb)
             local DropdownBtn = Instance.new("TextButton")
             DropdownBtn.Size = UDim2.new(1, 0, 0, 20)
             DropdownBtn.BackgroundTransparency = 1
@@ -345,18 +343,16 @@ function Library:CreateCategory(name, position)
             DropdownBtn.TextSize = 12
             DropdownBtn.TextXAlignment = Enum.TextXAlignment.Left
             DropdownBtn.Parent = SubFrame
-            
             local currentIdx = 1
             DropdownBtn.MouseButton1Click:Connect(function()
                 currentIdx = currentIdx + 1
                 if currentIdx > #options then currentIdx = 1 end
                 DropdownBtn.Text = "    > " .. name .. ": " .. options[currentIdx]
-                callback(options[currentIdx])
+                cb(options[currentIdx])
             end)
         end
 
-        -- COMPONENTE: Toggle (Sub-opção)
-        function moduleObj:AddToggle(name, default, callback)
+        function moduleObj:AddToggle(name, default, cb)
             local ToggleBtn = Instance.new("TextButton")
             ToggleBtn.Size = UDim2.new(1, 0, 0, 20)
             ToggleBtn.BackgroundTransparency = 1
@@ -366,22 +362,15 @@ function Library:CreateCategory(name, position)
             ToggleBtn.TextSize = 12
             ToggleBtn.TextXAlignment = Enum.TextXAlignment.Left
             ToggleBtn.Parent = SubFrame
-            
             local state = default
             ToggleBtn.MouseButton1Click:Connect(function()
                 state = not state
                 ToggleBtn.Text = "    > " .. name .. ": " .. (state and "ON" or "OFF")
                 ToggleBtn.TextColor3 = state and Color3.fromRGB(0, 255, 120) or Color3.fromRGB(150, 150, 150)
-                callback(state)
+                cb(state)
             end)
         end
 
-        if config.hasKeybind then
-            Library:AddKeybind("Módulo: " .. moduleName, config.defaultKey or Enum.KeyCode.Unknown, function(key)
-                -- Lógica interna para ativar via tecla pode ser adicionada aqui
-            end)
-        end
-        
         updateCategorySize()
         return moduleObj
     end
@@ -389,22 +378,25 @@ function Library:CreateCategory(name, position)
     return categoryObj
 end
 
--- Atalhos Globais
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if not gameProcessed then
-        if input.KeyCode == Library.OpenKey then
-            MainFrame.Visible = not MainFrame.Visible
-            local ModalBtn = Instance.new("TextButton", MainFrame)
-            ModalBtn.Size = UDim2.new(0,0,0,0)
-            ModalBtn.Modal = MainFrame.Visible
-            ModalBtn:Destroy()
-        elseif input.KeyCode == Library.RemoveKey then
-            ScreenGui:Destroy()
-        end
+-- Atalhos Globais Iniciais
+Library:AddKeybind("Abrir/Fechar Menu", Library.OpenKey, function(key, pressed)
+    if pressed then
+        MainFrame.Visible = not MainFrame.Visible
+        local ModalBtn = Instance.new("TextButton", MainFrame)
+        ModalBtn.Size = UDim2.new(0,0,0,0)
+        ModalBtn.Modal = MainFrame.Visible
+        ModalBtn:Destroy()
+    else
+        Library.OpenKey = key
     end
 end)
 
-Library:AddKeybind("Abrir/Fechar Menu", Library.OpenKey, function(key) Library.OpenKey = key end)
-Library:AddKeybind("Remover Script", Library.RemoveKey, function(key) Library.RemoveKey = key end)
+Library:AddKeybind("Remover Script", Library.RemoveKey, function(key, pressed)
+    if pressed then
+        ScreenGui:Destroy()
+    else
+        Library.RemoveKey = key
+    end
+end)
 
 return Library
