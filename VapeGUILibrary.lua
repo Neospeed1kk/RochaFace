@@ -1,3 +1,4 @@
+-- vapegui.lua
 local mainapi = {
 	Connections = {},
 	Categories = {},
@@ -536,33 +537,7 @@ end
 -- REMOVENDO O LOOP DE 60 MÓDULOS
 -- NÃO VAMOS CRIAR OS 60 MÓDULOS 'mod1' a 'mod60'
 
--- AGORA VAMOS CRIAR MANUALMENTE APENAS OS 3 MÓDULOS QUE VOCÊ PEDIU
--- 1. Auto Ataque (na categoria Combat)
-local autoAtaque = mainapi.Categories.Combat:CreateModule({
-	Name = 'Auto Ataque',
-	Function = function(callback)
-		print('Auto Ataque', callback)
-	end,
-	Tooltip = 'Ataca automaticamente os inimigos'
-})
-
--- 2. Ataque Aereo (na categoria Combat)
-local ataqueAereo = mainapi.Categories.Combat:CreateModule({
-	Name = 'Ataque Aereo',
-	Function = function(callback)
-		print('Ataque Aereo', callback)
-	end,
-	Tooltip = 'Ataca dos ares'
-})
-
--- 3. Nomes e Vida (na categoria Render)
-local nomesVida = mainapi.Categories.Render:CreateModule({
-	Name = 'Nomes e Vida',
-	Function = function(callback)
-		print('Nomes e Vida', callback)
-	end,
-	Tooltip = 'Mostra nomes e vida dos inimigos'
-})
+-- TAMBÉM REMOVEMOS A CRIAÇÃO DOS 3 MÓDULOS (Auto Ataque, Ataque Aereo, Nomes e Vida)
 
 mainapi:Clean(clickgui.MouseButton1Click:Connect(function()
 	if expanded then expanded:Expand() end
