@@ -1,4 +1,4 @@
--- Manus GUI Library V3 (Correção de Keybinds e Controle Manual)
+-- Manus GUI Library V4 (Suporte a Trigger e Toggle)
 -- Hospedagem: https://raw.githubusercontent.com/Neospeed1kk/RochaFace/refs/heads/main/gui.lua
 
 local Library = {}
@@ -128,7 +128,7 @@ KeybindList.Padding = UDim.new(0, 5)
 KeybindList.HorizontalAlignment = Enum.HorizontalAlignment.Center
 KeybindList.Parent = KeybindContainer
 
--- Função para adicionar Keybind na Settings (MANUAL)
+-- Função para adicionar Keybind na Settings
 function Library:AddKeybind(label, defaultKey, callback)
     local Frame = Instance.new("Frame")
     Frame.Size = UDim2.new(0.9, 0, 0, 35)
@@ -167,9 +167,9 @@ function Library:AddKeybind(label, defaultKey, callback)
             binding = false
             currentKey = input.KeyCode
             BindBtn.Text = currentKey.Name
-            if callback then callback(currentKey) end
+            if callback then callback(currentKey, false) end -- Apenas mudou a tecla
         elseif not gameProcessed and currentKey and input.KeyCode == currentKey then
-            if callback then callback(currentKey, true) end -- O segundo parâmetro 'true' indica que foi pressionado
+            if callback then callback(currentKey, true) end -- Foi pressionado
         end
     end)
     
@@ -233,8 +233,8 @@ function Library:CreateCategory(name, position)
         OptionsFrame.Visible = categoryObj.Expanded
     end)
     
-    function categoryObj:AddModule(moduleName, callback)
-        local moduleObj = { Enabled = false }
+    function categoryObj:AddModule(moduleName, callback, isTrigger)
+        local moduleObj = { Enabled = false, IsTrigger = isTrigger or false }
         
         local ModuleContainer = Instance.new("Frame")
         ModuleContainer.Size = UDim2.new(1, 0, 0, 25)
@@ -270,15 +270,24 @@ function Library:CreateCategory(name, position)
             OptionsFrame.Size = UDim2.new(1, 0, 0, total)
         end
 
-        -- Função para alternar estado (Pode ser chamada externamente ou internamente)
-        function moduleObj:Toggle(state)
-            if state ~= nil then self.Enabled = state else self.Enabled = not self.Enabled end
-            ModuleBtn.TextColor3 = self.Enabled and Color3.fromRGB(0, 255, 120) or Color3.fromRGB(200, 200, 200)
-            if callback then callback(self.Enabled) end
+        -- Função de Execução (Gatilho ou Alternância)
+        function moduleObj:Execute()
+            if self.IsTrigger then
+                -- Se for gatilho, apenas pisca a cor e executa
+                local oldColor = ModuleBtn.TextColor3
+                ModuleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+                task.delay(0.1, function() ModuleBtn.TextColor3 = oldColor end)
+                if callback then callback() end
+            else
+                -- Se for toggle, alterna o estado
+                self.Enabled = not self.Enabled
+                ModuleBtn.TextColor3 = self.Enabled and Color3.fromRGB(0, 255, 120) or Color3.fromRGB(200, 200, 200)
+                if callback then callback(self.Enabled) end
+            end
         end
 
         ModuleBtn.MouseButton1Click:Connect(function()
-            moduleObj:Toggle()
+            moduleObj:Execute()
         end)
         
         ModuleBtn.MouseButton2Click:Connect(function()
@@ -392,11 +401,5 @@ Library:AddKeybind("Abrir/Fechar Menu", Library.OpenKey, function(key, pressed)
 end)
 
 Library:AddKeybind("Remover Script", Library.RemoveKey, function(key, pressed)
-    if pressed then
-        ScreenGui:Destroy()
-    else
-        Library.RemoveKey = key
-    end
-end)
-
-return Library
+    if pr
+(Content truncated due to size limit. Use line ranges to read remaining content)
