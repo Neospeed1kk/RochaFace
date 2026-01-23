@@ -401,5 +401,11 @@ Library:AddKeybind("Abrir/Fechar Menu", Library.OpenKey, function(key, pressed)
 end)
 
 Library:AddKeybind("Remover Script", Library.RemoveKey, function(key, pressed)
-    if pr
-(Content truncated due to size limit. Use line ranges to read remaining content)
+    if pressed then
+        ScreenGui:Destroy()
+    else
+        Library.RemoveKey = key
+    end
+end)
+
+return Library
