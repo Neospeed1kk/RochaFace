@@ -1,5 +1,5 @@
--- Manus GUI Library V1
--- Uma biblioteca modular para criação de cheats estilo Minecraft no Roblox
+-- Manus GUI Library V2 (Final com Componentes)
+-- Hospedagem: https://raw.githubusercontent.com/Neospeed1kk/RochaFace/refs/heads/main/gui.lua
 
 local Library = {}
 
@@ -9,6 +9,7 @@ local Players = game:GetService("Players")
 local CoreGui = game:GetService("CoreGui")
 
 local player = Players.LocalPlayer
+local mouse = player:GetMouse()
 
 -- Configurações Internas
 Library.OpenKey = Enum.KeyCode.Insert
@@ -33,7 +34,7 @@ MainFrame.Visible = true
 MainFrame.Active = true
 MainFrame.Parent = ScreenGui
 
--- Funções Utilitárias Internas
+-- Funções Utilitárias
 local function makeDraggable(frame, dragHandle)
     local dragging, dragInput, dragStart, startPos
     dragHandle.InputBegan:Connect(function(input)
@@ -87,7 +88,7 @@ SettingsBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 SettingsBtn.TextSize = 20
 SettingsBtn.Parent = TopBar
 
--- Tela de Configurações (Keybinds)
+-- Tela de Configurações
 local SettingsFrame = Instance.new("Frame")
 SettingsFrame.Size = UDim2.new(0, 350, 0, 300)
 SettingsFrame.Position = UDim2.new(0.5, -175, 0.5, -150)
@@ -128,7 +129,6 @@ KeybindList.Padding = UDim.new(0, 5)
 KeybindList.HorizontalAlignment = Enum.HorizontalAlignment.Center
 KeybindList.Parent = KeybindContainer
 
--- Função para adicionar Keybind na Settings
 function Library:AddKeybind(label, defaultKey, callback)
     local Frame = Instance.new("Frame")
     Frame.Size = UDim2.new(0.9, 0, 0, 35)
@@ -171,21 +171,16 @@ function Library:AddKeybind(label, defaultKey, callback)
     KeybindContainer.CanvasSize = UDim2.new(0, 0, 0, KeybindList.AbsoluteContentSize.Y + 10)
 end
 
--- Lógica de Settings
 SettingsBtn.MouseButton1Click:Connect(function()
     Library.SettingsOpen = not Library.SettingsOpen
     SettingsFrame.Visible = Library.SettingsOpen
-    for _, cat in pairs(Library.Categories) do
-        cat.Visible = not Library.SettingsOpen
-    end
+    for _, cat in pairs(Library.Categories) do cat.Visible = not Library.SettingsOpen end
 end)
 
 CloseSettings.MouseButton1Click:Connect(function()
     Library.SettingsOpen = false
     SettingsFrame.Visible = false
-    for _, cat in pairs(Library.Categories) do
-        cat.Visible = true
-    end
+    for _, cat in pairs(Library.Categories) do cat.Visible = true end
 end)
 
 -- Função para criar Categoria
@@ -232,7 +227,6 @@ function Library:CreateCategory(name, position)
         OptionsFrame.Visible = categoryObj.Expanded
     end)
     
-    -- Função para adicionar Módulo
     function categoryObj:AddModule(moduleName, config)
         config = config or {}
         local moduleObj = { Enabled = false }
@@ -263,50 +257,132 @@ function Library:CreateCategory(name, position)
         SubFrame.Parent = ModuleContainer
         Instance.new("UIListLayout", SubFrame)
         
-        -- Lógica de Ativação
+        local function updateCategorySize()
+            local total = 0
+            for _, v in pairs(OptionsFrame:GetChildren()) do
+                if v:IsA("Frame") then total = total + v.Size.Y.Offset end
+            end
+            OptionsFrame.Size = UDim2.new(1, 0, 0, total)
+        end
+
         ModuleBtn.MouseButton1Click:Connect(function()
             moduleObj.Enabled = not moduleObj.Enabled
             ModuleBtn.TextColor3 = moduleObj.Enabled and Color3.fromRGB(0, 255, 120) or Color3.fromRGB(200, 200, 200)
             if config.callback then config.callback(moduleObj.Enabled) end
         end)
         
-        -- Lógica de Sub-opções (Botão Direito)
         ModuleBtn.MouseButton2Click:Connect(function()
             SubFrame.Visible = not SubFrame.Visible
-            local subHeight = SubFrame.Visible and (#SubFrame:GetChildren() - 1) * 20 or 0
+            local subHeight = 0
+            if SubFrame.Visible then
+                for _, v in pairs(SubFrame:GetChildren()) do
+                    if v:IsA("Frame") or v:IsA("TextButton") then subHeight = subHeight + v.Size.Y.Offset end
+                end
+            end
             SubFrame.Size = UDim2.new(1, 0, 0, subHeight)
             ModuleContainer.Size = UDim2.new(1, 0, 0, 25 + subHeight)
-            
-            -- Recalcular altura da categoria
-            local total = 0
-            for _, v in pairs(OptionsFrame:GetChildren()) do
-                if v:IsA("Frame") then total = total + v.Size.Y.Offset end
-            end
-            OptionsFrame.Size = UDim2.new(1, 0, 0, total)
+            updateCategorySize()
         end)
         
-        -- Função para adicionar Sub-opções (Sliders, Toggles, etc futuramente)
-        function moduleObj:AddSubAction(name, type)
-            local SubBtn = Instance.new("TextButton")
-            SubBtn.Size = UDim2.new(1, 0, 0, 20)
-            SubBtn.BackgroundTransparency = 1
-            SubBtn.Text = "    > " .. name .. (type and " ["..type.."]" or "")
-            SubBtn.TextColor3 = Color3.fromRGB(150, 150, 150)
-            SubBtn.Font = Enum.Font.SourceSans
-            SubBtn.TextSize = 12
-            SubBtn.TextXAlignment = Enum.TextXAlignment.Left
-            SubBtn.Parent = SubFrame
-            return SubBtn
-        end
-        
-        -- Adicionar Keybind automático se solicitado
-        if config.hasKeybind then
-            Library:AddKeybind("Módulo: " .. moduleName, config.defaultKey or Enum.KeyCode.Unknown, function(key)
-                print("Keybind para " .. moduleName .. " alterado para: " .. key.Name)
+        -- COMPONENTE: Slider
+        function moduleObj:AddSlider(name, min, max, default, callback)
+            local SliderFrame = Instance.new("Frame")
+            SliderFrame.Size = UDim2.new(1, 0, 0, 30)
+            SliderFrame.BackgroundTransparency = 1
+            SliderFrame.Parent = SubFrame
+            
+            local Label = Instance.new("TextLabel")
+            Label.Size = UDim2.new(1, 0, 0, 15)
+            Label.Text = "    " .. name .. ": " .. default
+            Label.TextColor3 = Color3.fromRGB(150, 150, 150)
+            Label.Font = Enum.Font.SourceSans
+            Label.TextSize = 12
+            Label.TextXAlignment = Enum.TextXAlignment.Left
+            Label.BackgroundTransparency = 1
+            Label.Parent = SliderFrame
+            
+            local Bar = Instance.new("Frame")
+            Bar.Size = UDim2.new(0.8, 0, 0, 4)
+            Bar.Position = UDim2.new(0.1, 0, 0.7, 0)
+            Bar.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+            Bar.BorderSizePixel = 0
+            Bar.Parent = SliderFrame
+            
+            local Fill = Instance.new("Frame")
+            Fill.Size = UDim2.new((default - min) / (max - min), 0, 1, 0)
+            Fill.BackgroundColor3 = Color3.fromRGB(0, 255, 120)
+            Fill.BorderSizePixel = 0
+            Fill.Parent = Bar
+            
+            local function updateSlider(input)
+                local pos = math.clamp((input.Position.X - Bar.AbsolutePosition.X) / Bar.AbsoluteSize.X, 0, 1)
+                Fill.Size = UDim2.new(pos, 0, 1, 0)
+                local val = math.floor(min + (max - min) * pos)
+                Label.Text = "    " .. name .. ": " .. val
+                callback(val)
+            end
+            
+            local sliding = false
+            Bar.InputBegan:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 then sliding = true end
+            end)
+            UserInputService.InputEnded:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 then sliding = false end
+            end)
+            UserInputService.InputChanged:Connect(function(input)
+                if sliding and input.UserInputType == Enum.UserInputType.MouseMovement then updateSlider(input) end
             end)
         end
         
-        OptionsFrame.Size = UDim2.new(1, 0, 0, (#OptionsFrame:GetChildren() - 1) * 25)
+        -- COMPONENTE: Dropdown
+        function moduleObj:AddDropdown(name, options, callback)
+            local DropdownBtn = Instance.new("TextButton")
+            DropdownBtn.Size = UDim2.new(1, 0, 0, 20)
+            DropdownBtn.BackgroundTransparency = 1
+            DropdownBtn.Text = "    > " .. name .. ": " .. options[1]
+            DropdownBtn.TextColor3 = Color3.fromRGB(150, 150, 150)
+            DropdownBtn.Font = Enum.Font.SourceSans
+            DropdownBtn.TextSize = 12
+            DropdownBtn.TextXAlignment = Enum.TextXAlignment.Left
+            DropdownBtn.Parent = SubFrame
+            
+            local currentIdx = 1
+            DropdownBtn.MouseButton1Click:Connect(function()
+                currentIdx = currentIdx + 1
+                if currentIdx > #options then currentIdx = 1 end
+                DropdownBtn.Text = "    > " .. name .. ": " .. options[currentIdx]
+                callback(options[currentIdx])
+            end)
+        end
+
+        -- COMPONENTE: Toggle (Sub-opção)
+        function moduleObj:AddToggle(name, default, callback)
+            local ToggleBtn = Instance.new("TextButton")
+            ToggleBtn.Size = UDim2.new(1, 0, 0, 20)
+            ToggleBtn.BackgroundTransparency = 1
+            ToggleBtn.Text = "    > " .. name .. ": " .. (default and "ON" or "OFF")
+            ToggleBtn.TextColor3 = default and Color3.fromRGB(0, 255, 120) or Color3.fromRGB(150, 150, 150)
+            ToggleBtn.Font = Enum.Font.SourceSans
+            ToggleBtn.TextSize = 12
+            ToggleBtn.TextXAlignment = Enum.TextXAlignment.Left
+            ToggleBtn.Parent = SubFrame
+            
+            local state = default
+            ToggleBtn.MouseButton1Click:Connect(function()
+                state = not state
+                ToggleBtn.Text = "    > " .. name .. ": " .. (state and "ON" or "OFF")
+                ToggleBtn.TextColor3 = state and Color3.fromRGB(0, 255, 120) or Color3.fromRGB(150, 150, 150)
+                callback(state)
+            end)
+        end
+
+        if config.hasKeybind then
+            Library:AddKeybind("Módulo: " .. moduleName, config.defaultKey or Enum.KeyCode.Unknown, function(key)
+                -- Lógica interna para ativar via tecla pode ser adicionada aqui
+            end)
+        end
+        
+        updateCategorySize()
         return moduleObj
     end
     
@@ -328,7 +404,6 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
     end
 end)
 
--- Adicionar Keybinds iniciais na Settings
 Library:AddKeybind("Abrir/Fechar Menu", Library.OpenKey, function(key) Library.OpenKey = key end)
 Library:AddKeybind("Remover Script", Library.RemoveKey, function(key) Library.RemoveKey = key end)
 
