@@ -1,10 +1,12 @@
 --[[
-    HUD CUSTOMIZER V12 FINAL (TOTAL SAVE SYSTEM)
+    HUD CUSTOMIZER V13 (COM AUTODESTRUIÇÃO)
+    - Adicionado botão "Remover Script" para limpeza completa.
     - Suporte completo para GetConfig() e LoadConfig()
     - Aplicação imediata de configurações ao carregar
     - Reset de Fábrica, Rainbow Suave e Limpeza Nuclear
 ]]
 
+-- Se uma instância antiga existir, destrua-a antes de criar uma nova.
 if _G.HUDMasterV12_Instance then _G.HUDMasterV12_Instance:Destroy() end
 
 local ScreenGui = Instance.new("ScreenGui")
@@ -28,10 +30,10 @@ local NATIVE_COLORS = {
     Title = Color3.fromRGB(255, 255, 255)
 }
 
-ScreenGui.Name = "HUDMasterV12"
+ScreenGui.Name = "HUDMasterV13" -- Versão atualizada
 ScreenGui.Parent = game.CoreGui
 ScreenGui.ResetOnSpawn = false
-_G.HUDMasterV12_Instance = ScreenGui
+_G.HUDMasterV12_Instance = ScreenGui -- Armazena a referência para poder ser destruída
 
 MainFrame.Name = "MainFrame"
 MainFrame.Parent = ScreenGui
@@ -74,7 +76,7 @@ Title.BackgroundTransparency = 1
 Title.Position = UDim2.new(0, 15, 0, 0)
 Title.Size = UDim2.new(0, 250, 1, 0)
 Title.Font = Enum.Font.GothamBold
-Title.Text = "HUD CUSTOMIZER V12"
+Title.Text = "HUD CUSTOMIZER V13"
 Title.TextColor3 = ACCENT
 Title.TextSize = 12
 Title.TextXAlignment = Enum.TextXAlignment.Left
@@ -230,6 +232,26 @@ createSection("VIDA (TEXTO)", "Health", 4, {hasVisibility = true})
 createSection("COR DA BARRA DE VIDA", "HealthBarFrame", 5, {isSpecial = true, hasVisibility = true, hasTransparency = true})
 createSection("COR DO FUNDO (BG)", "BGFrames", 6, {isSpecial = true, hasVisibility = true, hasTransparency = true})
 createSection("MOLDURA E ÍCONES", "Images", 7, {isSpecial = true, hasVisibility = true})
+
+-- <<< NOVO: BOTÃO DE REMOVER SCRIPT >>>
+local removeButton = Instance.new("TextButton")
+removeButton.Name = "RemoveButton"
+removeButton.Parent = Content
+removeButton.Size = UDim2.new(1, -5, 0, 40)
+removeButton.LayoutOrder = 99 -- Garante que ele fique no final
+removeButton.BackgroundColor3 = Color3.fromRGB(150, 40, 40)
+removeButton.Font = Enum.Font.GothamBold
+removeButton.Text = "REMOVER SCRIPT"
+removeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+removeButton.TextSize = 14
+Instance.new("UICorner", removeButton).CornerRadius = UDim.new(0, 8)
+
+removeButton.MouseButton1Click:Connect(function()
+    -- Limpa a referência global e destrói a GUI
+    _G.HUDMasterV12_Instance = nil
+    ScreenGui:Destroy()
+end)
+-- <<< FIM DA ADIÇÃO >>>
 
 local function loadCurrentData()
     State.IsUpdating = true
